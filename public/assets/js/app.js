@@ -225,6 +225,23 @@ async function openMovieDetail(movieId) {
         };
       }
 
+      // Owner-only delete for user uploads
+      const deleteBtn = document.getElementById('modal-btn-delete-movie');
+      if (deleteBtn) {
+        deleteBtn.classList.toggle('hidden', !res.can_delete);
+        deleteBtn.onclick = async () => {
+          if (!confirm(`Remove "${res.title}" from MyFlix? Watch parties using it will be deleted too.`)) return;
+          try {
+            const out = await API.delete(`/api/movies/${res.id}`);
+            showToast(out.message || 'Movie removed');
+            closeModal('modal-movie-detail');
+            setTimeout(() => window.location.reload(), 600);
+          } catch (err) {
+            showToast(err.message || 'Could not remove the movie', 'error');
+          }
+        };
+      }
+
       openModal('modal-movie-detail');
     }
   } catch (err) {

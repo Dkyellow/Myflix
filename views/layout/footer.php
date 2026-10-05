@@ -7,5 +7,6 @@
   <script src="/assets/js/livekit-client.js"></script>
   <script src="/assets/js/room.js"></script>
   <script src="/assets/js/app.js"></script>
+  <script src="/assets/js/upload.js"></script>
 </body>
 </html>
