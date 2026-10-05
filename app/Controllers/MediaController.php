@@ -26,13 +26,40 @@ class MediaController {
         'mov' => 'video/quicktime',
     ];
 
-    public function stream(Request $request, string $file): void {
-        if (!preg_match('/^[A-Za-z0-9_\-]+\.(mp4|m4v|webm|ogv|ogg|mov)$/', $file)) {
-            Response::error('Not found', 404);
+    /**
+     * The PHP built-in server answers any URI that contains a file extension
+     * itself (404) and never reaches index.php, so uploads are stored under an
+     * extension-less URL. The real extension is recovered from disk here.
+     */
+    private function resolvePath(string $file): ?string {
+        if (!preg_match('/^[A-Za-z0-9_\-]{1,64}$/', $file)) {
+            return null;
         }
 
-        $path = dirname(__DIR__, 2) . '/storage/uploads/videos/' . $file;
-        if (!is_file($path)) {
+        $dir = dirname(__DIR__, 2) . '/storage/uploads/videos';
+
+        if (str_contains($file, '.')) {
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            if (!isset(self::MIME[$ext])) {
+                return null;
+            }
+            $path = $dir . '/' . $file;
+            return is_file($path) ? $path : null;
+        }
+
+        foreach (glob($dir . '/' . $file . '.*') ?: [] as $candidate) {
+            $ext = strtolower(pathinfo($candidate, PATHINFO_EXTENSION));
+            if (isset(self::MIME[$ext]) && is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    public function stream(Request $request, string $file): void {
+        $path = $this->resolvePath($file);
+        if ($path === null) {
             Response::error('Not found', 404);
         }
 
@@ -76,7 +103,7 @@ class MediaController {
         header('Accept-Ranges: bytes');
         header("Content-Length: {$length}");
         header('Cache-Control: private, max-age=3600');
-        header('Content-Disposition: inline; filename="' . rawurlencode($file) . '"');
+        header('Content-Disposition: inline; filename="' . rawurlencode(basename($path)) . '"');
         if ($partial) {
             header("Content-Range: bytes {$start}-{$end}/{$size}");
         }

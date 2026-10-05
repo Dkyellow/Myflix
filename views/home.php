@@ -28,7 +28,7 @@
     <!-- Upload Movie (logged-in users only) -->
     <?php if ($user): ?>
       <button class="btn btn-outline btn-sm" onclick="openUploadModal()" title="Upload your own movie">
-        <i class="ph-bold ph-upload-simple"></i> <span class="hidden md:inline">Upload</span>
+        <i class="ph-bold ph-upload-simple"></i> Upload
       </button>
     <?php endif; ?>
 
@@ -93,11 +93,11 @@
 
 <!-- Content Rows Container -->
 <main class="content-container">
-  <!-- Your Uploads -->
+  <!-- Uploaded Movies -->
   <?php if (!empty($uploads)): ?>
   <div id="uploads">
     <?php
-      $title = 'Your Uploads';
+      $title = 'Uploaded Movies';
       $movies = $uploads;
       include dirname(__DIR__) . '/views/partials/row.php';
     ?>

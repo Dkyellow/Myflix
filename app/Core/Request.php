@@ -60,7 +60,11 @@ class Request {
     public function isJson(): bool {
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
         $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
-        return str_contains($contentType, 'application/json') || str_contains($accept, 'application/json');
+        if (str_contains($contentType, 'application/json') || str_contains($accept, 'application/json')) {
+            return true;
+        }
+        // Routes under /api/ are JSON endpoints regardless of Accept headers
+        return str_starts_with($this->path, '/api/');
     }
 
     public function header(string $key, mixed $default = null): mixed {

@@ -105,7 +105,7 @@ class UploadController {
             'description' => $description,
             'poster_url' => $posterUrl,
             'backdrop_url' => $posterUrl,
-            'video_url' => '/media/' . $videoName,
+            'video_url' => '/media/' . $basename,
             'duration_seconds' => min($duration, 86400 * 6),
             'release_year' => $releaseYear,
             'age_rating' => 'NR',
@@ -140,7 +140,7 @@ class UploadController {
             Response::error('You can only remove movies you uploaded', 403);
         }
 
-        $this->deleteFile(dirname(__DIR__, 2) . '/storage/uploads/videos/' . basename($deleted['video_url']));
+        $this->deleteStoredVideo($deleted['video_url']);
         if (str_starts_with((string)$deleted['poster_url'], '/uploads/posters/')) {
             $this->deleteFile(dirname(__DIR__, 2) . '/public' . $deleted['poster_url']);
         }
@@ -203,6 +203,22 @@ class UploadController {
     private function deleteFile(string $path): void {
         if (is_file($path)) {
             @unlink($path);
+        }
+    }
+
+    /**
+     * Video URLs are extension-less, so find the stored file by basename.
+     */
+    private function deleteStoredVideo(string $videoUrl): void {
+        $base = basename($videoUrl);
+        if (!preg_match('/^[A-Za-z0-9_\-]{1,64}$/', $base)) {
+            return;
+        }
+        $dir = dirname(__DIR__, 2) . '/storage/uploads/videos';
+        foreach (glob($dir . '/' . $base . '.*') ?: [] as $candidate) {
+            if (is_file($candidate)) {
+                @unlink($candidate);
+            }
         }
     }
 }
