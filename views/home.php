@@ -93,6 +93,26 @@
 
 <!-- Content Rows Container -->
 <main class="content-container">
+  <!-- Live Parties: rooms that are running right now and still have a free slot -->
+  <div id="live-rooms-section">
+    <?php include dirname(__DIR__) . '/views/partials/live-rooms.php'; ?>
+  </div>
+  <script>
+    (function () {
+      const host = document.getElementById('live-rooms-section');
+      if (!host) return;
+      setInterval(async () => {
+        if (document.visibilityState !== 'visible') return;
+        try {
+          const res = await fetch('/api/rooms/live', { cache: 'no-store' });
+          if (!res.ok) return;
+          const html = await res.text();
+          if (host.innerHTML.trim() !== html.trim()) host.innerHTML = html;
+        } catch (e) {}
+      }, 10000);
+    })();
+  </script>
+
   <!-- Uploaded Movies -->
   <?php if (!empty($uploads)): ?>
   <div id="uploads">

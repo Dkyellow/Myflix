@@ -49,6 +49,9 @@ $router->delete('/api/movies/{id}', [UploadController::class, 'destroy']);
 // Uploaded video streaming (Range-aware)
 $router->get('/media/{file}', [MediaController::class, 'stream']);
 
+// Live rooms listing (HTML fragment for the home page)
+$router->get('/api/rooms/live', [RoomController::class, 'liveFragment']);
+
 // Room Management & WebRTC Signaling API
 $router->post('/api/rooms/create', [RoomController::class, 'create']);
 $router->post('/api/rooms/{code}/join', [RoomController::class, 'join']);

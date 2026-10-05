@@ -6,6 +6,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Models\Movie;
+use App\Models\Room;
 use App\Models\UserList;
 
 class MovieController {
@@ -19,6 +20,7 @@ class MovieController {
         $sessionId = Session::getId();
         $myList = UserList::getMovies($user['id'] ?? null, $sessionId);
         $uploads = Movie::getUploads(12);
+        $liveRooms = Room::findAvailable(8);
 
         Response::view('home', [
             'title' => 'MyFlix — Watch Movies Together',
@@ -29,6 +31,7 @@ class MovieController {
             'drama' => $drama,
             'uploads' => $uploads,
             'myList' => $myList,
+            'liveRooms' => $liveRooms,
             'user' => $user
         ]);
     }

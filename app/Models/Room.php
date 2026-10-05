@@ -40,6 +40,45 @@ class Room {
         return self::findById($id);
     }
 
+    /**
+     * Rooms someone can walk into right now: still active, currently occupied
+     * (a participant heartbeated recently — same 45s window as
+     * Participant::getActiveInRoom) and with at least one free slot.
+     *
+     * @return array<int, array>
+     */
+    public static function findAvailable(int $limit = 8): array {
+        $pdo = Database::getInstance();
+        $cutoffMs = (int)((microtime(true) - 45) * 1000);
+        $limit = max(1, min(24, (int)$limit));
+
+        // The inner join on room_participants is what drops abandoned rooms:
+        // nobody with a fresh last_seen means no row, so no room.
+        $sql = "SELECT r.id, r.room_code, r.room_name, r.max_participants, r.status,
+                       r.playback_state, r.playback_position, r.updated_at,
+                       m.title AS movie_title,
+                       m.poster_url AS movie_poster,
+                       m.backdrop_url AS movie_backdrop,
+                       m.genre AS movie_genre,
+                       m.duration_seconds AS movie_duration,
+                       COUNT(p.id) AS participant_count
+                FROM watch_rooms r
+                JOIN movies m ON m.id = r.movie_id
+                JOIN room_participants p
+                  ON p.room_id = r.id
+                 AND p.left_at IS NULL
+                 AND p.last_seen >= :cutoff
+                WHERE r.status = 'active'
+                GROUP BY r.id
+                HAVING COUNT(p.id) < r.max_participants
+                ORDER BY participant_count DESC, r.updated_at DESC
+                LIMIT {$limit}";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['cutoff' => $cutoffMs]);
+        return $stmt->fetchAll();
+    }
+
     public static function findById(int $id): ?array {
         $pdo = Database::getInstance();
         $stmt = $pdo->prepare("SELECT r.*, m.title as movie_title, m.poster_url as movie_poster, m.backdrop_url as movie_backdrop, m.video_url as movie_video_url, m.duration_seconds as movie_duration, m.genre as movie_genre FROM watch_rooms r JOIN movies m ON r.movie_id = m.id WHERE r.id = :id LIMIT 1");

@@ -108,6 +108,23 @@ class RoomController {
         ]);
     }
 
+    /**
+     * HTML fragment backing the home page "Live Parties Now" strip, so the
+     * list can be refreshed without reloading the page.
+     */
+    public function liveFragment(Request $request): void {
+        $liveRooms = Room::findAvailable(8);
+
+        ob_start();
+        include dirname(__DIR__, 2) . '/views/partials/live-rooms.php';
+        $html = (string)ob_get_clean();
+
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        echo $html;
+        exit;
+    }
+
     public function join(Request $request, string $code): void {
         $room = Room::findByCode($code);
         if (!$room) {
