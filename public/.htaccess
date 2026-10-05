@@ -1,5 +1,16 @@
+# Camera/microphone must be allowed for this origin. Some hosts ship a
+# restrictive Permissions-Policy (camera=(), microphone=()), which makes
+# getUserMedia fail with NotAllowedError and a "not allowed in this document"
+# violation. `set` replaces any value inherited from the server config.
+<IfModule mod_headers.c>
+    Header always set Permissions-Policy "camera=(self), microphone=(self)"
+</IfModule>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # PHP reads this file itself; it should never be downloadable.
+    RewriteRule (^|/)\.user\.ini$ - [F]
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .

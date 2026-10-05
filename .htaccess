@@ -1,5 +1,13 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Block sensitive paths first. The rewrites below would already remap these
+    # to public/ (where they do not exist), but an explicit 403 does not depend
+    # on any of that surviving a deploy.
+    RewriteRule (^|/)\.env - [F]
+    RewriteRule (^|/)(storage|config|app|views|tests)(/|$) - [F]
+    RewriteRule (^|/)(serve\.bat|composer\.(json|lock)|test_video_url\.php) - [F]
+
     RewriteRule ^$ public/index.php [L]
     RewriteRule ^((?!public/).*)$ public/$1 [L]
 </IfModule>

@@ -35,13 +35,93 @@ class LiveKitCallManager {
     return 'Camera and microphone are not available in this browser.';
   }
 
+  /** Turn a getUserMedia failure into something the user can act on. */
+  static describeMediaError(err) {
+    switch (err && err.name) {
+      case 'NotAllowedError':
+      case 'PermissionDeniedError':
+        return 'Camera and microphone access was denied. Click the camera icon in the ' +
+          'address bar, choose "Allow", then reload this page.';
+      case 'NotFoundError':
+      case 'DevicesNotFoundError':
+        return 'No camera or microphone was found on this device.';
+      case 'NotReadableError':
+      case 'TrackStartError':
+        return 'Your camera or microphone is already in use by another application.';
+      case 'SecurityError':
+        return 'This page is not permitted to use the camera (Permissions-Policy or insecure context).';
+      case 'AbortError':
+        return 'The browser cancelled the camera request. Reload the page and try again.';
+      default:
+        return 'Camera and microphone could not be started: ' +
+          ((err && (err.message || err.name)) || 'unknown error');
+    }
+  }
+
+  notifyBlocked(reason) {
+    console.error('[MyFlix] media blocked:', reason);
+    if (this.onMediaBlocked) this.onMediaBlocked(reason);
+  }
+
+  /**
+   * Work out WHY the browser refused, so the message is actionable instead of
+   * "permission denied". Returns a string, or null when nothing specific can
+   * be pinned down.
+   */
+  static async diagnoseMediaPolicy() {
+    // 1. Embedded in a frame that never asked for camera/microphone
+    try {
+      if (window.self !== window.top) {
+        return 'This page is loaded inside an iframe that has not been granted camera ' +
+          'or microphone access. Open the room in its own tab instead.';
+      }
+    } catch (e) {
+      return 'This page is loaded inside a cross-origin frame that has not been granted ' +
+        'camera or microphone access.';
+    }
+
+    // 2. The document itself is restricted by a Permissions-Policy header
+    try {
+      const policy = document.permissionsPolicy || document.featurePolicy;
+      if (policy && typeof policy.allowsFeature === 'function') {
+        const cameraOk = policy.allowsFeature('camera');
+        const micOk = policy.allowsFeature('microphone');
+        if (cameraOk === false || micOk === false) {
+          let header = '';
+          try {
+            const res = await fetch(location.pathname, {
+              method: 'GET',
+              cache: 'no-store',
+              credentials: 'same-origin'
+            });
+            header = res.headers.get('permissions-policy') || res.headers.get('feature-policy') || '';
+          } catch (e) {}
+
+          return 'The server sends a Permissions-Policy that blocks camera and microphone' +
+            (header ? ' — Permissions-Policy: ' + header : '') +
+            '. The host has to allow them for this site.';
+        }
+      }
+    } catch (e) {}
+
+    // 3. The site permission was set to Block in the browser
+    try {
+      const camState = await navigator.permissions.query({ name: 'camera' });
+      if (camState.state === 'denied') {
+        return 'The browser has this site\u2019s camera permission set to Block. ' +
+          'Click the camera icon in the address bar, choose "Allow", then reload.';
+      }
+    } catch (e) {}
+
+    return null;
+  }
+
   /**
    * Acquire local user media (camera & mic)
    */
   async initLocalMedia(videoElement = null) {
     if (!this.isSupported) {
-      console.warn(this.getBlockReason());
-      if (this.onMediaBlocked) this.onMediaBlocked(this.getBlockReason());
+      this.notifyBlocked(this.getBlockReason());
       return false;
     }
 
@@ -60,14 +140,27 @@ class LiveKitCallManager {
       this.setupSpeakingDetector();
       return true;
     } catch (err) {
-      console.warn('Camera/mic access permission notice:', err.name, err.message);
-      // Try audio only if camera was denied
+      console.error('[MyFlix] getUserMedia (video+audio) failed:', err && err.name, err && err.message);
+
+      // Permission/policy failures apply to the microphone too, so retrying is
+      // pointless and would only replace a clear message with a second failure.
+      const permissionFailure = ['NotAllowedError', 'PermissionDeniedError', 'SecurityError', 'AbortError'];
+      if (permissionFailure.includes(err && err.name)) {
+        const diagnosis = await LiveKitCallManager.diagnoseMediaPolicy();
+        this.notifyBlocked(diagnosis || LiveKitCallManager.describeMediaError(err));
+        return false;
+      }
+
+      // Camera busy or missing: audio-only is still worth offering.
       try {
         this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         this.setupSpeakingDetector();
         this.isCamMuted = true;
         return true;
       } catch (audioErr) {
+        console.error('[MyFlix] getUserMedia (audio) failed:', audioErr && audioErr.name, audioErr && audioErr.message);
+        const diagnosis = await LiveKitCallManager.diagnoseMediaPolicy();
+        this.notifyBlocked(diagnosis || LiveKitCallManager.describeMediaError(err));
         return false;
       }
     }

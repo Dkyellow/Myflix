@@ -18,44 +18,55 @@ class WatchRoomApp {
   }
 
   async init() {
-    // 1. Initialize Video Player
-    const videoEl = document.getElementById('cinema-video');
-    if (videoEl) {
-      this.player = new CinemaPlayer(
-        videoEl,
-        this.room.room_code,
-        this.room.playback_position,
-        this.room.playback_state
+    try {
+      // 1. Initialize Video Player
+      const videoEl = document.getElementById('cinema-video');
+      if (videoEl) {
+        this.player = new CinemaPlayer(
+          videoEl,
+          this.room.room_code,
+          this.room.playback_position,
+          this.room.playback_state
+        );
+        this.player.isHost = this.isHost;
+      }
+
+      // 2. Initialize Media Manager (Camera & Mic)
+      this.mediaManager = new LiveKitCallManager(this.room.room_code, this.participant);
+
+      this.mediaManager.onSpeakingChange = (sessionId, isSpeaking) => {
+        this.setSpeakingState(sessionId, isSpeaking);
+      };
+
+      this.mediaManager.onMediaBlocked = (reason) => {
+        showToast(reason, 'error');
+      };
+
+      // Create our own tile up front so the local preview never depends on the
+      // participants poll returning in time.
+      this.renderParticipants([this.participant]);
+
+      const localTile = document.getElementById(`participant-tile-${this.participant.session_id}`);
+      const localVideo = localTile?.querySelector('video');
+      await this.mediaManager.initLocalMedia(localVideo);
+      this.attachLocalStream(
+        document.getElementById(`participant-tile-${this.participant.session_id}`)
       );
-      this.player.isHost = this.isHost;
+      await this.mediaManager.connect();
+
+      // 3. Bind UI Events
+      this.bindUI();
+
+      // 4. Start Event Sync Loop & Presence
+      this.startSyncLoop();
+      this.startHeartbeat();
+
+      // 5. Initial Chat Fetch
+      this.fetchChat();
+    } catch (err) {
+      console.error('[MyFlix] room init failed:', err);
+      showToast('The room failed to start: ' + (err && err.message ? err.message : err), 'error');
     }
-
-    // 2. Initialize Media Manager (Camera & Mic)
-    this.mediaManager = new LiveKitCallManager(this.room.room_code, this.participant);
-    
-    this.mediaManager.onSpeakingChange = (sessionId, isSpeaking) => {
-      this.setSpeakingState(sessionId, isSpeaking);
-    };
-
-    this.mediaManager.onMediaBlocked = (reason) => {
-      showToast(reason, 'error');
-    };
-
-    // Pre-acquire camera & mic
-    const localTile = document.getElementById(`participant-tile-${this.participant.session_id}`);
-    const localVideo = localTile?.querySelector('video');
-    await this.mediaManager.initLocalMedia(localVideo);
-    await this.mediaManager.connect();
-
-    // 3. Bind UI Events
-    this.bindUI();
-
-    // 4. Start Event Sync Loop & Presence
-    this.startSyncLoop();
-    this.startHeartbeat();
-
-    // 5. Initial Chat Fetch
-    this.fetchChat();
   }
 
   bindUI() {
@@ -261,7 +272,35 @@ class WatchRoomApp {
     } catch (e) {}
   }
 
+  attachLocalStream(tile) {
+    if (!tile) return;
+    const stream = this.mediaManager?.localStream;
+    const video = tile.querySelector('video');
+    const avatar = tile.querySelector('.participant-avatar-fallback');
+
+    if (!stream) {
+      // Camera never started: show the avatar instead of a dead black tile.
+      if (video) video.classList.add('hidden');
+      if (avatar) avatar.classList.remove('hidden');
+      return;
+    }
+
+    if (video) {
+      if (video.srcObject !== stream) video.srcObject = stream;
+      video.classList.remove('hidden');
+      video.play().catch(() => {});
+    }
+    if (avatar) avatar.classList.add('hidden');
+  }
+
   renderParticipants(participantsList) {
+    const selfSession = this.participant?.session_id;
+    // Never drop our own tile: if the poll momentarily omits us (heartbeat
+    // window, slow first request) the local camera would disappear with it.
+    if (selfSession && !participantsList.some(p => p.session_id === selfSession)) {
+      participantsList = [this.participant, ...participantsList];
+    }
+
     this.participants = participantsList;
     const grid = document.getElementById('participants-grid');
     const counter = document.getElementById('participants-count-text');
@@ -274,13 +313,13 @@ class WatchRoomApp {
 
     participantsList.forEach(p => {
       let tile = document.getElementById(`participant-tile-${p.session_id}`);
-      const isSelf = p.session_id === this.participant.session_id;
+      const isSelf = p.session_id === selfSession;
 
       if (!tile) {
         tile = document.createElement('div');
         tile.className = 'participant-tile';
         tile.id = `participant-tile-${p.session_id}`;
-        
+
         const initials = (p.display_name || 'U').substring(0, 2).toUpperCase();
         tile.innerHTML = `
           <div class="participant-avatar-fallback" style="background-color: ${p.avatar_color || '#E50914'}">${initials}</div>
@@ -293,19 +332,15 @@ class WatchRoomApp {
           </div>
         `;
         grid.appendChild(tile);
-
-        if (isSelf && this.mediaManager?.localStream) {
-          const video = tile.querySelector('video');
-          video.srcObject = this.mediaManager.localStream;
-          video.classList.remove('hidden');
-          const avatar = tile.querySelector('.participant-avatar-fallback');
-          if (avatar) avatar.classList.add('hidden');
-        }
       } else {
         const micBadge = tile.querySelector('.media-badge.mic');
         if (micBadge) {
           micBadge.classList.toggle('hidden', !p.mic_muted);
         }
+      }
+
+      if (isSelf) {
+        this.attachLocalStream(tile);
       }
     });
 

@@ -215,11 +215,23 @@
   gap: 8px;
   z-index: 30;
   opacity: 0;
+  /* Invisible controls must not swallow taps meant for the video. */
+  pointer-events: none;
   transition: opacity var(--transition-normal);
 }
 .player-wrapper:hover .cinema-controls-overlay,
 .cinema-controls-overlay.show-always {
   opacity: 1;
+  pointer-events: auto;
+}
+/* Touch devices have no hover and never fire mousemove, so the rules above
+   would leave the controls permanently invisible (opacity 0 still intercepts
+   taps) and the player would be unusable on iPhone/iPad. */
+@media (hover: none), (pointer: coarse) {
+  .cinema-controls-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 /* Progress Scrubber Bar */

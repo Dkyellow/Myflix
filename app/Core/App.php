@@ -53,6 +53,11 @@ class App {
 
     private function isDebug(): bool {
         $config = require dirname(__DIR__, 2) . '/config/config.php';
-        return (bool)($config['app']['debug'] ?? false);
+        $env = strtolower((string)($config['app']['env'] ?? 'production'));
+
+        // Stack traces and messages are only ever shown outside production,
+        // even if APP_DEBUG was left on by mistake.
+        return (bool)($config['app']['debug'] ?? false)
+            && !in_array($env, ['production', 'prod'], true);
     }
 }

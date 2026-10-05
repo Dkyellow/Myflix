@@ -5,10 +5,11 @@ namespace App\Controllers;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
+use App\Core\UploadStorage;
 use App\Models\Movie;
 
 class UploadController {
-    private const VIDEO_EXTENSIONS = ['mp4', 'm4v', 'webm', 'ogv', 'ogg', 'mov'];
+    private const VIDEO_EXTENSIONS = UploadStorage::VIDEO_EXTENSIONS;
     private const VIDEO_MIMES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-m4v', 'video/mp2t'];
     private const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -25,7 +26,7 @@ class UploadController {
         // post_max_size exceeded: PHP drops both $_POST and $_FILES
         if (empty($_FILES) && empty($_POST) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
             Response::error(
-                'Upload is larger than post_max_size (' . ini_get('post_max_size') . '). Restart the server with serve.bat to raise it.',
+                'Upload is larger than post_max_size (' . ini_get('post_max_size') . '). Raise upload_max_filesize and post_max_size (php.ini, .user.ini or cPanel MultiPHP INI Editor) and try again.',
                 413
             );
         }
@@ -37,7 +38,7 @@ class UploadController {
 
         if ($video['error'] === UPLOAD_ERR_INI_SIZE || $video['error'] === UPLOAD_ERR_FORM_SIZE) {
             Response::error(
-                'Video exceeds upload_max_filesize (' . ini_get('upload_max_filesize') . '). Restart the server with serve.bat to raise it.',
+                'Video exceeds upload_max_filesize (' . ini_get('upload_max_filesize') . '). Raise upload_max_filesize and post_max_size (php.ini, .user.ini or cPanel MultiPHP INI Editor) and try again.',
                 413
             );
         }
@@ -69,17 +70,13 @@ class UploadController {
             Response::error('Could not read the video length. Re-select the file and try again.', 422);
         }
 
-        $videoDir = dirname(__DIR__, 2) . '/storage/uploads/videos';
-        $posterDir = dirname(__DIR__, 2) . '/public/uploads/posters';
-        $this->ensureDir($videoDir);
-        $this->ensureDir($posterDir);
+        $posterDir = UploadStorage::postersDir();
+        UploadStorage::ensureDir($posterDir);
 
         $basename = bin2hex(random_bytes(8));
-        $videoName = $basename . '.' . $extension;
-        $videoPath = $videoDir . '/' . $videoName;
 
-        if (!move_uploaded_file($video['tmp_name'], $videoPath)) {
-            Response::error('Could not save the uploaded video. Check that storage/uploads/ is writable.', 500);
+        if (!UploadStorage::storeVideo($video['tmp_name'], $basename, $extension)) {
+            Response::error('Could not save the uploaded video. Check that the uploads directory is writable.', 500);
         }
 
         $posterName = $this->storePoster($basename, $posterDir);
@@ -105,7 +102,7 @@ class UploadController {
             'description' => $description,
             'poster_url' => $posterUrl,
             'backdrop_url' => $posterUrl,
-            'video_url' => '/media/' . $basename,
+            'video_url' => UploadStorage::publicUrl($basename, $extension),
             'duration_seconds' => min($duration, 86400 * 6),
             'release_year' => $releaseYear,
             'age_rating' => 'NR',
@@ -140,7 +137,7 @@ class UploadController {
             Response::error('You can only remove movies you uploaded', 403);
         }
 
-        $this->deleteStoredVideo($deleted['video_url']);
+        UploadStorage::deleteFromUrl((string)$deleted['video_url']);
         if (str_starts_with((string)$deleted['poster_url'], '/uploads/posters/')) {
             $this->deleteFile(dirname(__DIR__, 2) . '/public' . $deleted['poster_url']);
         }
@@ -194,31 +191,9 @@ class UploadController {
         return $byExt[$extension] ?? 'application/octet-stream';
     }
 
-    private function ensureDir(string $dir): void {
-        if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
-            Response::error('Could not create upload directory: ' . $dir, 500);
-        }
-    }
-
     private function deleteFile(string $path): void {
         if (is_file($path)) {
             @unlink($path);
-        }
-    }
-
-    /**
-     * Video URLs are extension-less, so find the stored file by basename.
-     */
-    private function deleteStoredVideo(string $videoUrl): void {
-        $base = basename($videoUrl);
-        if (!preg_match('/^[A-Za-z0-9_\-]{1,64}$/', $base)) {
-            return;
-        }
-        $dir = dirname(__DIR__, 2) . '/storage/uploads/videos';
-        foreach (glob($dir . '/' . $base . '.*') ?: [] as $candidate) {
-            if (is_file($candidate)) {
-                @unlink($candidate);
-            }
         }
     }
 }

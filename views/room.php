@@ -50,8 +50,9 @@
     <!-- Movie Player Canvas -->
     <main class="cinema-section">
       <div class="player-wrapper">
-        <!-- Native HTML5 Video Element -->
-        <video id="cinema-video" class="cinema-video" playsinline preload="auto">
+        <!-- Native HTML5 Video Element. `controls` is a safety net: it stays
+             only if player.js fails to initialise, and is removed on startup. -->
+        <video id="cinema-video" class="cinema-video" playsinline webkit-playsinline controls preload="auto">
           <source src="<?= htmlspecialchars($room['movie_video_url']) ?>" type="video/mp4">
           Your browser does not support the video tag.
         </video>

@@ -21,6 +21,12 @@ class CinemaPlayer {
     this.lastLocalActionMs = 0;
     this.autoplayBlockedNotified = false;
 
+    // The markup carries `controls` so the video stays playable if this script
+    // ever fails to initialise. Drop them again in favour of the custom bar.
+    try {
+      this.video.removeAttribute('controls');
+    } catch (e) {}
+
     this.initElements();
     this.bindEvents();
 
@@ -51,10 +57,12 @@ class CinemaPlayer {
     this.centerIndicator = document.getElementById('center-playback-indicator');
     this.reactionLayer = document.getElementById('reaction-burst-layer');
 
-    // Restore volume
+    // Restore volume (video.volume is read-only on iOS Safari)
     const savedVol = localStorage.getItem('myflix_player_volume');
     if (savedVol !== null) {
-      this.video.volume = parseFloat(savedVol);
+      try {
+        this.video.volume = parseFloat(savedVol);
+      } catch (e) {}
       if (this.volumeSlider) this.volumeSlider.value = savedVol;
     }
   }
@@ -77,7 +85,7 @@ class CinemaPlayer {
         this.video.currentTime = target;
       }
       if (this.roomPlaybackState === 'playing') {
-        this.video.play().catch(() => {});
+        this.safePlay();
       }
     }, { once: true });
 
@@ -100,13 +108,15 @@ class CinemaPlayer {
       });
     }
 
-    // Scrubber interactions
+    // Scrubber interactions (mouse + touch: iOS Safari fires neither
+    // mousemove nor mouseup during a drag)
     if (this.scrubberContainer) {
       this.scrubberContainer.addEventListener('mousedown', (e) => this.startScrubbing(e));
       this.scrubberContainer.addEventListener('mousemove', (e) => this.onScrubberHover(e));
       this.scrubberContainer.addEventListener('mouseleave', () => {
         if (this.scrubberTooltip) this.scrubberTooltip.style.display = 'none';
       });
+      this.scrubberContainer.addEventListener('touchstart', (e) => this.startScrubbing(e), { passive: true });
     }
 
     document.addEventListener('mousemove', (e) => {
@@ -117,7 +127,34 @@ class CinemaPlayer {
       if (this.isScrubbing) this.stopScrubbing(e);
     });
 
-    // Volume controls
+    document.addEventListener('touchmove', (e) => {
+      if (this.isScrubbing) {
+        e.preventDefault();
+        this.scrub(e);
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchend', (e) => {
+      if (this.isScrubbing) this.stopScrubbing(e);
+    });
+
+    document.addEventListener('touchcancel', () => {
+      if (this.isScrubbing) this.stopScrubbing({});
+    });
+
+    // Volume controls. iOS Safari exposes video.volume as read-only, so a
+    // slider that cannot change anything is worse than no slider at all.
+    let canSetVolume = true;
+    try {
+      const desc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume');
+      canSetVolume = !!(desc && desc.set);
+    } catch (e) {
+      canSetVolume = false;
+    }
+    if (!canSetVolume) {
+      this.volumeSlider?.closest('.volume-control')?.classList.add('hidden');
+    }
+
     if (this.volumeBtn) {
       this.volumeBtn.addEventListener('click', () => {
         this.video.muted = !this.video.muted;
@@ -125,7 +162,12 @@ class CinemaPlayer {
     }
     if (this.volumeSlider) {
       this.volumeSlider.addEventListener('input', (e) => {
-        this.video.volume = parseFloat(e.target.value);
+        if (!canSetVolume) return;
+        try {
+          this.video.volume = parseFloat(e.target.value);
+        } catch (err) {
+          return;
+        }
         this.video.muted = false;
         localStorage.setItem('myflix_player_volume', this.video.volume);
       });
@@ -175,9 +217,48 @@ class CinemaPlayer {
     }
   }
 
+  /**
+   * play() rejects when the browser has not seen a user gesture yet — this is
+   * the normal case on iPhone, where autoplay with sound is always blocked.
+   * Report it once and reveal the controls so the tap target is visible.
+   */
+  safePlay() {
+    let promise;
+    try {
+      promise = this.video.play();
+    } catch (e) {
+      this.onAutoplayBlocked(e);
+      return Promise.resolve(false);
+    }
+
+    if (!promise || typeof promise.then !== 'function') {
+      return Promise.resolve(true);
+    }
+
+    return promise.then(() => {
+      this.autoplayBlockedNotified = false;
+      this.updatePlayBtnUI(true);
+      return true;
+    }).catch((err) => {
+      this.onAutoplayBlocked(err);
+      return false;
+    });
+  }
+
+  onAutoplayBlocked(err) {
+    console.warn('[MyFlix] autoplay blocked:', err && err.name, err && err.message);
+    if (this.autoplayBlockedNotified) return;
+    this.autoplayBlockedNotified = true;
+    this.updatePlayBtnUI(false);
+    this.controlsOverlay?.classList.add('show-always');
+    if (typeof showToast === 'function') {
+      showToast('Autoplay was blocked — tap the play button to start the movie.', 'error');
+    }
+  }
+
   togglePlayPause() {
     if (this.video.paused) {
-      this.video.play().catch(e => console.log('Play error:', e));
+      this.safePlay();
     } else {
       this.video.pause();
     }
@@ -236,38 +317,56 @@ class CinemaPlayer {
     }, 400);
   }
 
+  /** Mouse events carry clientX; touch events only carry touches[]/changedTouches[]. */
+  pointerClientX(e) {
+    if (e.touches && e.touches.length) return e.touches[0].clientX;
+    if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientX;
+    return e.clientX;
+  }
+
+  scrubPosition(e) {
+    if (!this.scrubberContainer) return 0;
+    const rect = this.scrubberContainer.getBoundingClientRect();
+    const clientX = this.pointerClientX(e);
+    if (typeof clientX !== 'number') return 0;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }
+
   startScrubbing(e) {
+    // iOS has no duration metadata yet; seeking would land at NaN/0, so do
+    // not start a drag at all until the file is readable.
+    if (!isFinite(this.video.duration) || this.video.duration <= 0) return;
     this.isScrubbing = true;
     this.scrub(e);
   }
 
   scrub(e) {
     if (!this.isScrubbing || !this.scrubberContainer) return;
-    const rect = this.scrubberContainer.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const targetTime = pos * (this.video.duration || 1);
-    
+    if (!isFinite(this.video.duration) || this.video.duration <= 0) return;
+
+    const pos = this.scrubPosition(e);
+
     if (this.scrubberProgress) {
       this.scrubberProgress.style.width = `${pos * 100}%`;
     }
-    this.video.currentTime = targetTime;
+    this.video.currentTime = pos * this.video.duration;
   }
 
   stopScrubbing(e) {
     if (!this.isScrubbing) return;
     this.isScrubbing = false;
-    const rect = this.scrubberContainer.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const targetTime = pos * (this.video.duration || 1);
-    
+    if (!isFinite(this.video.duration) || this.video.duration <= 0) return;
+
+    const pos = this.scrubPosition(e);
+    const targetTime = pos * this.video.duration;
+
     this.video.currentTime = targetTime;
     this.broadcastSync('seek', targetTime);
   }
 
   onScrubberHover(e) {
     if (!this.scrubberContainer || !this.scrubberTooltip) return;
-    const rect = this.scrubberContainer.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const pos = this.scrubPosition(e);
     const time = pos * (this.video.duration || 0);
 
     this.scrubberTooltip.style.display = 'block';
@@ -322,15 +421,23 @@ class CinemaPlayer {
   }
 
   toggleFullscreen() {
-    if (!document.fullscreenElement) {
+    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+    if (!isFullscreen) {
       if (this.wrapper?.requestFullscreen) {
-        this.wrapper.requestFullscreen();
+        Promise.resolve(this.wrapper.requestFullscreen()).catch(() => {});
+      } else if (this.video.webkitEnterFullscreen) {
+        // iPhone Safari has no Element.requestFullscreen — only the video
+        // element itself can go fullscreen, via the prefixed API.
+        this.video.webkitEnterFullscreen();
       } else if (this.video.requestFullscreen) {
-        this.video.requestFullscreen();
+        Promise.resolve(this.video.requestFullscreen()).catch(() => {});
       }
     } else {
       if (document.exitFullscreen) {
-        document.exitFullscreen();
+        Promise.resolve(document.exitFullscreen()).catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
       }
     }
   }
@@ -440,18 +547,7 @@ class CinemaPlayer {
     }
 
     if (shouldBePlaying && this.video.paused) {
-      this.video.play().then(() => {
-        this.autoplayBlockedNotified = false;
-      }).catch(() => {
-        if (!this.autoplayBlockedNotified) {
-          this.autoplayBlockedNotified = true;
-          this.updatePlayBtnUI(false);
-          if (typeof showToast === 'function') {
-            showToast('Autoplay was blocked — click the play button to start the movie.', 'error');
-          }
-        }
-      });
-      this.updatePlayBtnUI(true);
+      this.safePlay();
     } else if (!shouldBePlaying && !this.video.paused) {
       this.video.pause();
       this.updatePlayBtnUI(false);
@@ -504,7 +600,7 @@ class CinemaPlayer {
       this.isRemoteUpdate = true;
       this.video.currentTime = this.projectedRoomTime();
       if (this.roomPlaybackState === 'playing') {
-        this.video.play().catch(e => console.log(e));
+        this.safePlay();
       }
       setTimeout(() => {
         this.isRemoteUpdate = false;

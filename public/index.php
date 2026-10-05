@@ -2,8 +2,13 @@
 
 declare(strict_types=1);
 
-// Error reporting for development
-ini_set('display_errors', '1');
+// Error reporting for development. Warnings and notices must never be printed
+// to visitors on a hosted copy, so display_errors follows the same production
+// guard that App uses before rendering stack traces.
+$config = require dirname(__DIR__) . '/config/config.php';
+$env = strtolower((string)($config['app']['env'] ?? 'production'));
+$isDebug = (bool)($config['app']['debug'] ?? false) && !in_array($env, ['production', 'prod'], true);
+ini_set('display_errors', $isDebug ? '1' : '0');
 error_reporting(E_ALL);
 
 require_once dirname(__DIR__) . '/app/Core/App.php';

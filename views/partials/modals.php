@@ -125,7 +125,7 @@
       <span class="hero-badge" style="font-size: 0.7rem;">Add To Your Library</span>
       <h3 style="font-size: 1.4rem; font-weight: 700; margin: 6px 0 20px;">Upload a Movie</h3>
 
-      <form id="upload-movie-form">
+      <form id="upload-movie-form" data-max-upload="<?= htmlspecialchars((string)ini_get('upload_max_filesize')) ?>">
         <div class="form-group">
           <label class="form-label">Video File</label>
           <div id="upload-dropzone" class="upload-dropzone">
@@ -136,6 +136,7 @@
               <i class="ph-bold ph-film" style="font-size: 2rem; color: var(--text-muted);"></i>
               <p style="margin-top: 8px; font-weight: 600;">Click to choose a video</p>
               <small style="color: var(--text-muted);">MP4, WebM, MOV, M4V or OGV</small>
+              <small id="upload-max-hint" style="display: block; color: var(--text-muted);"></small>
             </div>
 
             <div id="upload-preview" class="hidden">

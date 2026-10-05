@@ -102,7 +102,9 @@
         videoEl.srcObject = localStream;
       }
     } catch (e) {
-      console.warn('Hardware preview permission:', e);
+      console.error('[MyFlix] lobby preview failed:', e && e.name, e && e.message);
+      const diagnosis = await LiveKitCallManager.diagnoseMediaPolicy().catch(() => null);
+      showToast(diagnosis || LiveKitCallManager.describeMediaError(e), 'error');
       if (fallbackEl) fallbackEl.classList.remove('hidden');
       if (videoEl) videoEl.classList.add('hidden');
     }

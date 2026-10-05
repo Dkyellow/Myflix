@@ -16,21 +16,28 @@ class Database {
 
             if ($dbConf['connection'] === 'mysql') {
                 try {
-                    $dsn = "mysql:host={$dbConf['host']};port={$dbConf['port']};charset=utf8mb4";
-                    $pdo = new PDO($dsn, $dbConf['username'], $dbConf['password'], [
-                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                        PDO::ATTR_EMULATE_PREPARES => false,
-                    ]);
-                    // Ensure database exists
-                    $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$dbConf['database']}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-                    $pdo->exec("USE `{$dbConf['database']}`");
+                    $pdo = self::connectMysql($dbConf, true);
                     self::$instance = $pdo;
                     self::$driver = 'mysql';
                 } catch (PDOException $e) {
-                    // Fallback to SQLite if MySQL is not available
-                    error_log("MySQL connection failed ({$e->getMessage()}), falling back to SQLite.");
-                    self::connectSqlite();
+                    // The named database may not exist yet. Creating it needs the
+                    // CREATE privilege, which shared hosts (cPanel) withhold, so
+                    // this second attempt is allowed to fail: we then fall through
+                    // to SQLite rather than dying. Configuring MySQL and silently
+                    // landing on SQLite is worse, so log it loudly.
+                    try {
+                        $admin = self::connectMysql($dbConf, false);
+                        $db = self::identifier($dbConf['database']);
+                        $admin->exec(
+                            "CREATE DATABASE IF NOT EXISTS `{$db}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                        );
+                        $admin->exec("USE `{$db}`");
+                        self::$instance = $admin;
+                        self::$driver = 'mysql';
+                    } catch (PDOException $e2) {
+                        error_log("MySQL unavailable ({$e2->getMessage()}), falling back to SQLite.");
+                        self::connectSqlite();
+                    }
                 }
             } else {
                 self::connectSqlite();
@@ -40,6 +47,23 @@ class Database {
         }
 
         return self::$instance;
+    }
+
+    private static function connectMysql(array $dbConf, bool $withDatabase): PDO {
+        $dsn = "mysql:host={$dbConf['host']};port={$dbConf['port']};charset=utf8mb4";
+        if ($withDatabase) {
+            $dsn .= ';dbname=' . $dbConf['database'];
+        }
+
+        return new PDO($dsn, $dbConf['username'], $dbConf['password'], [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+    }
+
+    private static function identifier(string $name): string {
+        return str_replace('`', '', $name);
     }
 
     private static function connectSqlite(): void {
@@ -53,6 +77,11 @@ class Database {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
         $pdo->exec("PRAGMA foreign_keys = ON;");
+        // Concurrent requests otherwise die with "database is locked". Keep this
+        // at or above the 60s pdo_sqlite default rather than lowering it.
+        $pdo->exec("PRAGMA busy_timeout = 60000;");
+        $pdo->exec("PRAGMA journal_mode = WAL;");
+        $pdo->exec("PRAGMA synchronous = NORMAL;");
         self::$instance = $pdo;
         self::$driver = 'sqlite';
     }

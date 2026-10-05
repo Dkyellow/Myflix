@@ -6,8 +6,18 @@ class Response {
     public static function json(mixed $data, int $status = 200, array $headers = []): void {
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
+        $cacheControlSet = false;
         foreach ($headers as $key => $value) {
+            if (strcasecmp($key, 'Cache-Control') === 0) {
+                $cacheControlSet = true;
+            }
             header("{$key}: {$value}");
+        }
+        // Room events/chat/signals are polled every few hundred milliseconds;
+        // a CDN or reverse proxy must never answer them from cache.
+        if (!$cacheControlSet) {
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            header('Pragma: no-cache');
         }
         echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
