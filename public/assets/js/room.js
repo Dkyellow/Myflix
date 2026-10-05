@@ -164,7 +164,7 @@ class WatchRoomApp {
     this.pollSync();
     this.pollTimer = setInterval(() => {
       this.pollSync();
-    }, 850); // 850ms interval for sub-second smooth sync without locking server
+    }, 600); // 600ms interval keeps control latency low without hammering the server
   }
 
   async pollSync() {

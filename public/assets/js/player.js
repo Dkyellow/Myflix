@@ -69,6 +69,18 @@ class CinemaPlayer {
     this.video.addEventListener('volumechange', () => this.onVolumeChange());
     this.video.addEventListener('error', () => this.onMediaError());
 
+    // currentTime can only be set once metadata is known; re-apply the room
+    // position when it finally arrives so late joiners start at the right spot.
+    this.video.addEventListener('loadedmetadata', () => {
+      const target = this.projectedRoomTime();
+      if (target > 0 && Math.abs(this.video.currentTime - target) > 1.2) {
+        this.video.currentTime = target;
+      }
+      if (this.roomPlaybackState === 'playing') {
+        this.video.play().catch(() => {});
+      }
+    }, { once: true });
+
     const source = this.video.querySelector('source');
     if (source) {
       source.addEventListener('error', () => this.onMediaError());
