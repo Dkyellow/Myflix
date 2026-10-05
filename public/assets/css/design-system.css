@@ -1,0 +1,264 @@
+/* ==========================================================================
+   MYFLIX DESIGN SYSTEM — CINEMATIC WATCH PARTY PLATFORM
+   Authoritative Netflix-inspired Dark Aesthetic System
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  /* Colors */
+  --bg-main: #141414;
+  --bg-deep: #0a0a0a;
+  --bg-surface: #181818;
+  --bg-elevated: #232323;
+  --bg-overlay: rgba(20, 20, 20, 0.85);
+  
+  --brand-red: #E50914;
+  --brand-red-hover: #b81d24;
+  --brand-red-glow: rgba(229, 9, 20, 0.35);
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #AAAAAA;
+  --text-muted: #757575;
+  --text-dark: #141414;
+
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-medium: rgba(255, 255, 255, 0.2);
+  --border-active: rgba(229, 9, 20, 0.6);
+
+  --status-success: #46D369;
+  --status-warning: #FFA00A;
+  --status-error: #E50914;
+
+  /* Typography */
+  --font-logo: 'Bebas Neue', Impact, 'Arial Black', sans-serif;
+  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Radius */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 400ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.85);
+  --shadow-glow: 0 0 24px var(--brand-red-glow);
+
+  /* Layout */
+  --nav-height: 68px;
+  --container-max: 1800px;
+}
+
+/* Reset & Box Sizing */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+img, video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
+
+/* Utility Classes */
+.hidden { display: none !important; }
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.gap-xs { gap: var(--space-xs); }
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+.gap-lg { gap: var(--space-lg); }
+
+/* Typography */
+.text-xs { font-size: 0.75rem; }
+.text-sm { font-size: 0.875rem; }
+.text-base { font-size: 1rem; }
+.text-lg { font-size: 1.125rem; }
+.text-xl { font-size: 1.25rem; }
+.text-2xl { font-size: 1.5rem; }
+.text-3xl { font-size: 2rem; }
+.text-4xl { font-size: 2.5rem; }
+
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+.text-red { color: var(--brand-red); }
+
+/* Brand Logo */
+.brand-logo {
+  font-family: var(--font-logo);
+  font-size: 2rem;
+  letter-spacing: 2px;
+  color: var(--brand-red);
+  text-shadow: 0 2px 10px rgba(229, 9, 20, 0.4);
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.brand-logo:hover {
+  transform: scale(1.02);
+}
+.brand-logo-party-badge {
+  font-family: var(--font-main);
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: var(--brand-red);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 1px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* Base Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 10px 22px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  min-height: 44px;
+  user-select: none;
+  text-align: center;
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn-primary {
+  background-color: var(--brand-red);
+  color: #FFFFFF;
+}
+.btn-primary:hover {
+  background-color: var(--brand-red-hover);
+  box-shadow: 0 4px 15px var(--brand-red-glow);
+}
+.btn-white {
+  background-color: #FFFFFF;
+  color: var(--text-dark);
+}
+.btn-white:hover {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+.btn-secondary {
+  background-color: rgba(109, 109, 110, 0.7);
+  color: #FFFFFF;
+  backdrop-filter: blur(4px);
+}
+.btn-secondary:hover {
+  background-color: rgba(109, 109, 110, 0.45);
+}
+.btn-outline {
+  background-color: transparent;
+  border: 1px solid var(--border-medium);
+  color: #FFFFFF;
+}
+.btn-outline:hover {
+  border-color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.btn-icon {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.825rem;
+  min-height: 36px;
+}
+.btn-lg {
+  padding: 14px 28px;
+  font-size: 1.1rem;
+  min-height: 52px;
+}
