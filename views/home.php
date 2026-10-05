@@ -25,6 +25,13 @@
       <div id="search-dropdown" class="search-results-dropdown"></div>
     </div>
 
+    <!-- Upload Movie (logged-in users only) -->
+    <?php if ($user): ?>
+      <button class="btn btn-outline btn-sm" onclick="openUploadModal()" title="Upload your own movie">
+        <i class="ph-bold ph-upload-simple"></i> <span class="hidden md:inline">Upload</span>
+      </button>
+    <?php endif; ?>
+
     <!-- User Auth / Profile -->
     <?php if ($user): ?>
       <div class="user-menu-btn" onclick="API.post('/api/auth/logout').then(() => window.location.reload())" title="Click to Logout">
@@ -86,6 +93,17 @@
 
 <!-- Content Rows Container -->
 <main class="content-container">
+  <!-- Your Uploads -->
+  <?php if (!empty($uploads)): ?>
+  <div id="uploads">
+    <?php
+      $title = 'Your Uploads';
+      $movies = $uploads;
+      include dirname(__DIR__) . '/views/partials/row.php';
+    ?>
+  </div>
+  <?php endif; ?>
+
   <!-- My List Row (if user has added movies) -->
   <?php if (!empty($myList)): ?>
   <div id="mylist">

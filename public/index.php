@@ -14,6 +14,8 @@ use App\Controllers\MovieController;
 use App\Controllers\RoomController;
 use App\Controllers\SyncController;
 use App\Controllers\ChatController;
+use App\Controllers\MediaController;
+use App\Controllers\UploadController;
 
 $app = new App();
 $router = $app->getRouter();
@@ -34,6 +36,13 @@ $router->get('/api/movies/search', [MovieController::class, 'search']);
 $router->get('/api/movie/{id}', [MovieController::class, 'detail']);
 $router->post('/api/my-list/toggle', [MovieController::class, 'toggleMyList']);
 $router->get('/api/my-list', [MovieController::class, 'getMyList']);
+
+// User Uploads
+$router->post('/api/movies/upload', [UploadController::class, 'store']);
+$router->delete('/api/movies/{id}', [UploadController::class, 'destroy']);
+
+// Uploaded video streaming (Range-aware)
+$router->get('/media/{file}', [MediaController::class, 'stream']);
 
 // Room Management & WebRTC Signaling API
 $router->post('/api/rooms/create', [RoomController::class, 'create']);

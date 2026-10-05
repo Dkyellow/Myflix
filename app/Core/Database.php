@@ -98,8 +98,16 @@ class Database {
             featured INT DEFAULT 0,
             director VARCHAR(100) NULL,
             cast_members VARCHAR(255) NULL,
+            owner_user_id INT NULL,
             created_at {$timestampDef}
         )");
+
+        // Migration: uploads ownership column (no-op once it exists)
+        try {
+            $pdo->exec("ALTER TABLE movies ADD COLUMN owner_user_id INT NULL");
+        } catch (\Throwable $e) {
+            // column already present
+        }
 
         // Watch rooms table
         $pdo->exec("CREATE TABLE IF NOT EXISTS watch_rooms (

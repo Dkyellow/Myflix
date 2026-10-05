@@ -29,6 +29,9 @@
         <div><strong>Cast:</strong> <span id="modal-movie-cast"></span></div>
         <div><strong>Director:</strong> <span id="modal-movie-director"></span></div>
         <div><strong>Genre:</strong> <span id="modal-movie-genre"></span></div>
+        <button id="modal-btn-delete-movie" class="btn btn-outline btn-sm hidden" style="margin-top: 8px; color: var(--brand-red); border-color: var(--brand-red);">
+          <i class="ph-bold ph-trash"></i> Remove from MyFlix
+        </button>
       </div>
     </div>
   </div>
@@ -110,6 +113,68 @@
       <div style="margin-top: 24px; text-align: center; font-size: 0.875rem; color: var(--text-secondary);">
         <span id="auth-toggle-link" style="cursor: pointer;" onclick="toggleAuthMode()">New to MyFlix? <strong>Sign up now.</strong></span>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Movie Modal -->
+<div id="modal-upload" class="modal-backdrop">
+  <div class="modal-window" style="max-width: 560px;">
+    <button class="modal-close-btn" onclick="closeModal('modal-upload')"><i class="ph-bold ph-x"></i></button>
+    <div style="padding: 32px 28px;">
+      <span class="hero-badge" style="font-size: 0.7rem;">Add To Your Library</span>
+      <h3 style="font-size: 1.4rem; font-weight: 700; margin: 6px 0 20px;">Upload a Movie</h3>
+
+      <form id="upload-movie-form">
+        <div class="form-group">
+          <label class="form-label">Video File</label>
+          <div id="upload-dropzone" class="upload-dropzone">
+            <input type="file" id="upload-video-input" hidden
+                   accept="video/mp4,video/webm,video/ogg,video/quicktime,.mp4,.m4v,.webm,.ogv,.ogg,.mov">
+
+            <div id="upload-picker">
+              <i class="ph-bold ph-film" style="font-size: 2rem; color: var(--text-muted);"></i>
+              <p style="margin-top: 8px; font-weight: 600;">Click to choose a video</p>
+              <small style="color: var(--text-muted);">MP4, WebM, MOV, M4V or OGV</small>
+            </div>
+
+            <div id="upload-preview" class="hidden">
+              <video id="upload-preview-video" muted playsinline></video>
+              <div id="upload-file-meta" class="upload-file-meta"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Title</label>
+          <input type="text" id="upload-title-input" class="form-control" maxlength="255" placeholder="Movie title" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label class="form-label">Genre</label>
+            <input type="text" id="upload-genre-input" class="form-control" maxlength="100" placeholder="e.g. Documentary">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Release Year</label>
+            <input type="number" id="upload-year-input" class="form-control" min="1888" max="2100" placeholder="<?= date('Y') ?>">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea id="upload-desc-input" class="form-control" rows="3" maxlength="2000" placeholder="What is it about?"></textarea>
+        </div>
+
+        <div id="upload-progress" class="upload-progress hidden">
+          <div id="upload-progress-bar" class="upload-progress-bar"></div>
+        </div>
+        <div id="upload-progress-text" class="upload-progress-text hidden">0%</div>
+
+        <button type="submit" id="upload-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 16px;">
+          <i class="ph-bold ph-upload-simple"></i> Upload Movie
+        </button>
+      </form>
     </div>
   </div>
 </div>

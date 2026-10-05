@@ -18,6 +18,7 @@ class MovieController {
         $user = Session::getUser();
         $sessionId = Session::getId();
         $myList = UserList::getMovies($user['id'] ?? null, $sessionId);
+        $uploads = Movie::getUploads(12);
 
         Response::view('home', [
             'title' => 'MyFlix — Watch Movies Together',
@@ -26,6 +27,7 @@ class MovieController {
             'popular' => $popular,
             'action' => $action,
             'drama' => $drama,
+            'uploads' => $uploads,
             'myList' => $myList,
             'user' => $user
         ]);
@@ -45,7 +47,14 @@ class MovieController {
         $inList = UserList::isInList($user['id'] ?? null, $sessionId, $movie['id']);
 
         if ($request->isJson()) {
-            Response::json(array_merge($movie, ['in_my_list' => $inList]));
+            $canDelete = $user
+                && !empty($movie['owner_user_id'])
+                && (int)$movie['owner_user_id'] === (int)$user['id'];
+
+            Response::json(array_merge($movie, [
+                'in_my_list' => $inList,
+                'can_delete' => (bool)$canDelete
+            ]));
         }
 
         Response::view('movie-detail', [
